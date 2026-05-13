@@ -1,20 +1,24 @@
-import { ethers } from 'ethers';
+import { StrKey } from '@stellar/stellar-sdk';
 import { ValidationError } from './errors.js';
 
-const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+const STELLAR_ADDRESS_REGEX = /^G[A-Z0-9]{55}$/;
 
 export function extractAddressFromBio(bio: string | null | undefined): string {
   if (!bio) {
     throw new ValidationError('GitHub user has no bio configured');
   }
 
-  const match = bio.match(ADDRESS_REGEX);
+  const match = bio.match(STELLAR_ADDRESS_REGEX);
   if (!match) {
     throw new ValidationError(
-      'No valid Ethereum address found in GitHub bio. Expected format: 0x... (42 chars)',
+      'No valid Stellar address found in GitHub bio. Expected format: G... (56 chars)',
     );
   }
 
-  const address = ethers.getAddress(match[0]!);
+  const address = match[0]!;
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    throw new ValidationError('Invalid Stellar address checksum in GitHub bio');
+  }
+
   return address;
 }

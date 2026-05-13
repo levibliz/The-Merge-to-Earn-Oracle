@@ -3,10 +3,10 @@
 > **Automate the transition from a merged PR to a paid reward — bridging GitHub contributions with on-chain payouts.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Solidity](https://img.shields.io/badge/Solidity-%5E0.8.20-blue)](https://soliditylang.org)
 [![Node](https://img.shields.io/badge/Node-%5E20.0-green)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)](https://www.typescriptlang.org)
-[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-000000)](https://book.getfoundry.sh)
+[![Rust](https://img.shields.io/badge/Rust-1.75-orange)](https://rust-lang.org)
+[![Stellar](https://img.shields.io/badge/Stellar-Soroban-000000)](https://stellar.org)
 
 ---
 
@@ -73,7 +73,7 @@ Create a trust-minimized, automated reward pipeline that turns every merged pull
 | **Label-Based Point System** | Extract reward amounts from PR labels (`drips-wave: <points>`) |
 | **GitHub Bio Address Resolution** | Resolve contributor wallet address from their GitHub profile bio |
 | **On-Chain Payment Tracking** | Each reward is recorded with `contributor`, `issueId`, and `amount` |
-| **Duplicate Payment Prevention** | `paidIssues` mapping ensures no issue is paid twice |
+| **Duplicate Payment Prevention** | On-chain paid-issues tracking ensures no issue is paid twice |
 | **Webhook Signature Verification** | Validates GitHub webhook payloads with HMAC-SHA256 |
 | **Rate Limiting** | Prevents abuse with configurable request throttling |
 | **Health Monitoring** | `/health` endpoint for uptime checks |
@@ -112,13 +112,13 @@ Create a trust-minimized, automated reward pipeline that turns every merged pull
                       │ releaseReward()
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              Ethereum / L2 Network (Smart Contract)             │
+│              Stellar Network (Soroban Smart Contract)            │
 │                                                                  │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │  WaveVault                                                 │  │
-│  │  ├── releaseReward(contributor, issueId, amount)          │  │
-│  │  ├── paidIssues[issueId] → bool (dupe prevention)         │  │
-│  │  └── RewardPaid(contributor, issueId, amount) event       │  │
+│  │  ├── release_reward(contributor, issueId, amount)         │  │
+│  │  ├── paid(issueId) → bool (dupe prevention)               │  │
+│  │  └── reward_paid event (contributor, issueId, amount)     │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -131,9 +131,9 @@ Create a trust-minimized, automated reward pipeline that turns every merged pull
 
 | Technology | Purpose |
 |------------|---------|
-| **Solidity ^0.8.20** | Smart contract language |
-| **Foundry (Forge)** | Development, testing, and deployment framework |
-| **OpenZeppelin** | Audited contract primitives (Ownable, Pausable, ReentrancyGuard) |
+| **Rust** | Smart contract language |
+| **Soroban SDK** | Development, testing, and deployment framework |
+| **soroban-cli** | Contract build, deploy, and interaction CLI |
 
 ### Backend Layer
 
@@ -142,7 +142,7 @@ Create a trust-minimized, automated reward pipeline that turns every merged pull
 | **Node.js 20+** | JavaScript runtime |
 | **TypeScript 5.5** | Type-safe development |
 | **Express.js** | HTTP server framework |
-| **Ethers.js v6** | Ethereum interaction library |
+| **Stellar SDK v12** | Stellar/Soroban interaction library |
 | **Pino** | Structured JSON logging |
 | **Zod** | Runtime input validation |
 | **Vitest** | Unit and integration testing |
@@ -219,19 +219,9 @@ merge-to-earn-oracle/
 │   └── .env.example
 │
 ├── contracts/
+│   ├── Cargo.toml                   # Rust project configuration
 │   ├── src/
-│   │   ├── WaveVault.sol            # Core reward vault contract
-│   │   └── interfaces/
-│   │       └── IWaveVault.sol       # Contract interface
-│   │
-│   ├── test/
-│   │   └── WaveVault.t.sol          # Foundry tests
-│   │
-│   ├── script/
-│   │   └── Deploy.s.sol             # Deployment script
-│   │
-│   ├── foundry.toml
-│   ├── remappings.txt
+│   │   └── lib.rs                   # Soroban WaveVault contract + tests
 │   └── .env.example
 │
 ├── docker-compose.yml               # Local development stack
@@ -252,7 +242,7 @@ merge-to-earn-oracle/
 |------|---------|--------------|
 | Node.js | ^20.0 | [nodejs.org](https://nodejs.org) |
 | pnpm | ^9.0 | `npm install -g pnpm` |
-| Foundry | Latest | [book.getfoundry.sh](https://book.getfoundry.sh/getting-started/installation) |
+| Rust | ^1.75 | [rustup.rs](https://rustup.rs) |
 | Docker | ^24.0 | [docker.com](https://docker.com) |
 | Docker Compose | ^2.20 | Included with Docker Desktop |
 
@@ -281,7 +271,7 @@ pnpm dev                   # Starts backend + contract watcher
 
 # 6. Run tests
 pnpm test                  # Runs all tests
-cd contracts && forge test && cd ..
+cd contracts && cargo test && cd ..
 ```
 
 ### Environment Variables
@@ -302,10 +292,12 @@ cd contracts && forge test && cd ..
 | `DATABASE_URL` | Yes | PostgreSQL connection string | — |
 | `GITHUB_WEBHOOK_SECRET` | Yes | GitHub webhook secret for HMAC verification | — |
 | `GITHUB_TOKEN` | Yes | GitHub personal access token (for API calls) | — |
-| `RPC_URL` | Yes | Ethereum RPC endpoint | — |
-| `CONTRACT_ADDRESS` | Yes | Deployed WaveVault address | — |
-| `ORACLE_PRIVATE_KEY` | Yes | Private key for the oracle wallet | — |
-| `PRICE_PER_POINT` | No | Ether value per point | `0.001` |
+| `RPC_URL` | Yes | Soroban RPC endpoint | — |
+| `CONTRACT_ADDRESS` | Yes | Deployed WaveVault contract address (C...) | — |
+| `ORACLE_SECRET_KEY` | Yes | Stellar secret key for the oracle (S...) | — |
+| `TOKEN_ADDRESS` | Yes | Token contract address for rewards (C...) | — |
+| `NETWORK_PASSPHRASE` | No | Stellar network passphrase | `Test SDF Network ; September 2015` |
+| `PRICE_PER_POINT` | No | XLM value per point | `0.001` |
 | `RATE_LIMIT_WINDOW_MS` | No | Rate limit window in ms | `60000` |
 | `RATE_LIMIT_MAX_REQUESTS` | No | Max requests per window | `100` |
 
@@ -313,9 +305,11 @@ cd contracts && forge test && cd ..
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
-| `RPC_URL` | Yes | Network RPC URL | — |
-| `PRIVATE_KEY` | Yes | Deployer wallet private key | — |
-| `ETHERSCAN_API_KEY` | No | For contract verification | — |
+| `RPC_URL` | Yes | Soroban RPC URL | — |
+| `DEPLOYER_SECRET_KEY` | Yes | Deployer Stellar secret key (S...) | — |
+| `ORACLE_ADDRESS` | Yes | Oracle Stellar public key (G...) | — |
+| `TOKEN_ADDRESS` | Yes | Token contract address for rewards (C...) | — |
+| `NETWORK_PASSPHRASE` | No | Stellar network passphrase | `Test SDF Network ; September 2015` |
 
 ---
 
@@ -340,11 +334,10 @@ pnpm db:migrate    # Run Prisma migrations
 pnpm db:studio     # Open Prisma Studio
 
 # Contracts
-forge build        # Compile Solidity
-forge test         # Run Solidity tests
-forge coverage     # Generate coverage report
-forge snapshot     # Gas snapshot
-forge script Deploy --rpc-url $RPC_URL --broadcast  # Deploy
+cargo build --target wasm32-unknown-unknown --release  # Build contract WASM
+cargo test         # Run Rust/Soroban tests
+soroban contract deploy --wasm target/wasm32-unknown-unknown/release/wave_vault.wasm \
+  --source $DEPLOYER_SECRET_KEY --rpc-url $RPC_URL  # Deploy
 ```
 
 ### Code Quality Tools
@@ -360,28 +353,21 @@ forge script Deploy --rpc-url $RPC_URL --broadcast  # Deploy
 
 ### WaveVault
 
-The `WaveVault` contract is the on-chain component that holds reward funds and releases them when called by the authorized oracle.
+The `WaveVault` contract is the Soroban smart contract that holds reward tokens and releases them when called by the authorized oracle.
 
-```solidity
-contract WaveVault is Ownable, Pausable, ReentrancyGuard {
-    address public oracle;
-    mapping(uint256 => bool) public paidIssues;
+```rust
+#![no_std]
+use soroban_sdk::{contract, contractimpl, token, Address, Env, Map};
 
-    event RewardPaid(
-        address indexed contributor,
-        uint256 indexed issueId,
-        uint256 amount
-    );
-    event OracleUpdated(
-        address indexed previousOracle,
-        address indexed newOracle
-    );
+#[contract]
+pub struct WaveVault;
 
-    function releaseReward(
-        address payable _contributor,
-        uint256 _issueId,
-        uint256 _amount
-    ) external onlyOracle nonReentrant whenNotPaused;
+#[contractimpl]
+impl WaveVault {
+    pub fn initialize(env: Env, oracle: Address, token: Address);
+    pub fn release_reward(env: Env, contributor: Address, issue_id: u64, amount: i128);
+    pub fn paid(env: Env, issue_id: u64) -> bool;
+    pub fn set_oracle(env: Env, new_oracle: Address);
 }
 ```
 
@@ -389,27 +375,35 @@ contract WaveVault is Ownable, Pausable, ReentrancyGuard {
 
 | Decision | Rationale |
 |----------|-----------|
-| **OpenZeppelin Ownable** | Standardized ownership with 2-step transfer option |
-| **Pausable** | Emergency stop mechanism if vulnerabilities are discovered |
-| **ReentrancyGuard** | Protection against reentrancy attacks |
-| **Two-step Oracle update** | Prevents accidentally setting the zero address as oracle |
-| **CEI pattern** | Checks-Effects-Interactions: state update before external call |
+| **Soroban SDK** | Official Stellar smart contract framework |
+| **Authorized Oracle** | `oracle.require_auth()` ensures only the oracle can release rewards |
+| **Token Transfer** | Uses token interface for native XLM or custom token payouts |
+| **Duplicate Prevention** | On-chain storage tracks paid issue IDs |
+| **WASM Runtime** | Contract compiles to WASM for Soroban execution environment |
 
 ### Deployment
 
 ```bash
-# Local anvil chain
-anvil
+# Build contract WASM
+cargo build --target wasm32-unknown-unknown --release
 
-# Deploy (pass oracle address as constructor arg)
-forge script script/Deploy.s.sol \
-    --rpc-url http://localhost:8545 \
-    --broadcast \
-    --verify
+# Deploy to Soroban
+soroban contract deploy \
+    --wasm target/wasm32-unknown-unknown/release/wave_vault.wasm \
+    --source $DEPLOYER_SECRET_KEY \
+    --rpc-url $RPC_URL \
+    --network-passphrase "$NETWORK_PASSPHRASE"
 
-# Verify on Etherscan
-forge verify-contract <address> src/WaveVault.sol:WaveVault \
-    --etherscan-api-key $ETHERSCAN_API_KEY
+# Initialize the contract
+soroban contract invoke \
+    --id $CONTRACT_ADDRESS \
+    --source $DEPLOYER_SECRET_KEY \
+    --rpc-url $RPC_URL \
+    --network-passphrase "$NETWORK_PASSPHRASE" \
+    -- \
+    initialize \
+    --oracle $ORACLE_ADDRESS \
+    --token $TOKEN_ADDRESS
 ```
 
 ---
@@ -440,7 +434,7 @@ GitHub webhook receiver for `pull_request.closed` events.
     "merged": true,
     "user": {
       "login": "contributor123",
-      "bio": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+      "bio": "GA7QNF7C3PJ4XZ6QJ3K5Y5V7Z7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q"
     },
     "labels": [
       { "name": "drips-wave: 100" },
@@ -457,10 +451,10 @@ GitHub webhook receiver for `pull_request.closed` events.
   "success": true,
   "data": {
     "issueId": 42,
-    "contributor": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+    "contributor": "GA7QNF7C3PJ4XZ6QJ3K5Y5V7Z7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q",
     "points": 100,
-    "amount": "0.1",
-    "txHash": "0xabcdef..."
+    "amount": "0.0010000",
+    "txHash": "a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890"
   }
 }
 
@@ -495,15 +489,15 @@ Health check endpoint.
 
 ## Testing Strategy
 
-### Smart Contract Tests (Foundry)
+### Smart Contract Tests (Rust / Soroban)
 
 ```bash
-cd contracts && forge test -vvv
+cd contracts && cargo test
 ```
 
 | Test File | Coverage |
 |-----------|----------|
-| `WaveVault.t.sol` | Constructor, reward release, duplicate prevention, access control, pause/unpause, oracle management |
+| `src/lib.rs` (inline tests) | Initialize, reward release, duplicate prevention, access control, oracle management, multiple rewards |
 
 ### Backend Tests (Vitest)
 
@@ -540,16 +534,16 @@ Triggered on every push and PR:
 
 1. **Lint** — ESLint + Prettier check
 2. **TypeScript Compile** — `tsc --noEmit`
-3. **Smart Contract Tests** — `forge test`
+3. **Smart Contract Tests** — `cargo test`
 4. **Backend Tests** — `vitest run`
-5. **Build** — `forge build` + `pnpm build`
+5. **Build** — `cargo build` + `pnpm build`
 
 ### Continuous Deployment (`.github/workflows/deploy.yml`)
 
 Triggered on merge to `main`:
 
 1. **Build & Push Docker image** to GitHub Container Registry
-2. **Deploy Smart Contract** via Foundry (if changed)
+2. **Deploy Smart Contract** via soroban-cli (if changed)
 3. **Deploy Backend** to target environment (Kubernetes / Docker Swarm)
 
 ---
@@ -619,8 +613,8 @@ spec:
 | **Rate Limiting** | Token bucket algorithm prevents abuse |
 | **Input Validation** | Zod schemas validate every request payload |
 | **Access Control** | Only the oracle address can call `releaseReward` |
-| **Reentrancy Guard** | Contract uses OpenZeppelin's `ReentrancyGuard` |
-| **Emergency Pause** | Owner can pause the contract in case of emergency |
+| **Oracle Authorization** | `require_auth()` ensures only the oracle can release rewards |
+| **Duplicate Prevention** | On-chain storage prevents double payments |
 | **No Secrets in Code** | All credentials via environment variables |
 | **Dependency Audits** | `pnpm audit` runs in CI |
 | **HTTPS Only** | Require TLS in production (terminated at reverse proxy) |
@@ -633,7 +627,7 @@ spec:
 - **Stateless Backend**: Horizontal scaling with no session affinity required
 - **Connection Pooling**: Efficient PostgreSQL connection management
 - **Batch Processing**: Queue-based reward processing for high throughput
-- **Gas Optimization**: Contract uses `calldata` instead of `memory`, packed structs
+- **WASM Optimization**: Contract compiled with `opt-level = "z"` and LTO for minimal size
 - **Caching**: GitHub API responses cached with TTL
 - **Lazy Loading**: Prisma queries use selective field loading
 
@@ -651,9 +645,9 @@ spec:
   "hostname": "oracle-1",
   "msg": "Reward released successfully",
   "issueId": 42,
-  "contributor": "0x...",
-  "amount": "0.1",
-  "txHash": "0x..."
+  "contributor": "G...",
+  "amount": "0.0010000",
+  "txHash": "a1b2c3d4..."
 }
 ```
 
@@ -672,7 +666,7 @@ spec:
 - **Sentry** — Error tracking and performance monitoring
 - **Prometheus + Grafana** — Metrics collection and dashboards
 - **Datadog / New Relic** — Full observability (APM, logs, metrics)
-- **Tenderly** — Smart contract monitoring and alerting
+- **Stellar Expert** — Stellar network monitoring
 
 ---
 
@@ -686,7 +680,7 @@ spec:
 - [x] Basic testing suite
 
 ### Phase 2 — Production Hardening
-- [ ] Multi-network support (Ethereum, Polygon, Optimism, Arbitrum)
+- [ ] Multi-network support (Stellar mainnet, testnet, future networks)
 - [ ] Reward strategy plugins (time-weighted, quadratic, tiered)
 - [ ] Event sourcing with webhook replay capability
 - [ ] Admin dashboard for monitoring and manual overrides
@@ -695,7 +689,7 @@ spec:
 ### Phase 3 — Scaling
 - [ ] Decentralized oracle network (multiple oracle operators)
 - [ ] Governance DAO for reward parameter voting
-- [ ] Cross-chain reward distribution (LayerZero / Hyperlane)
+- [ ] Cross-chain reward distribution (Stellar ecosystem bridges)
 - [ ] Real-time contributor analytics dashboard
 - [ ] Integration with popular DAO tooling (Snapshot, Coordinape)
 
@@ -734,7 +728,7 @@ chore: upgrade ethers.js to v6.5
 
 ### Pull Request Checklist
 
-- [ ] Tests pass (`forge test && pnpm test`)
+- [ ] Tests pass (`cargo test && pnpm test`)
 - [ ] Lint passes (`pnpm lint`)
 - [ ] New tests cover the change
 - [ ] Documentation is updated
@@ -744,11 +738,12 @@ chore: upgrade ethers.js to v6.5
 
 ## Coding Standards
 
-### Solidity
+### Rust
 
-- Follow [Solidity Style Guide](https://docs.soliditylang.org/en/latest/style-guide.html)
-- Use NatSpec comments for all public interfaces
-- Follow the Checks-Effects-Interactions pattern
+- Follow [Rust Style Guide](https://doc.rust-lang.org/style-guide/)
+- Use `cargo fmt` for formatting
+- Use `#[cfg(test)]` for inline tests
+- Follow Soroban idiomatic patterns
 - Maximum line length: 120 characters
 
 ### TypeScript
@@ -774,13 +769,13 @@ A: No. The `paidIssues` mapping prevents duplicate payments. If the oracle recei
 A: The reward service logs an error and skips the payout. We recommend configuring an alternative lookup method (e.g., a mapping file or API) for Phase 2.
 
 **Q: How are reward amounts calculated?**
-A: The label format `drips-wave: <points>` determines the point value, which is multiplied by `PRICE_PER_POINT` to get the ETH amount. This is configurable.
+A: The label format `drips-wave: <points>` determines the point value, which is multiplied by `PRICE_PER_POINT` to get the XLM amount. This is configurable.
 
-**Q: Can I use a different blockchain?**
-A: Yes. The contract is EVM-compatible and can be deployed to any EVM chain. Update the `RPC_URL` and `CONTRACT_ADDRESS` accordingly.
+**Q: Can I use a different network?**
+A: Yes. The contract can be deployed to any Soroban-enabled Stellar network. Update the `RPC_URL` and `NETWORK_PASSPHRASE` accordingly.
 
 **Q: Is the project audited?**
-A: Not yet. We recommend a professional security audit before mainnet deployment. The contract uses OpenZeppelin audited primitives.
+A: Not yet. We recommend a professional security audit before mainnet deployment.
 
 ---
 
@@ -791,10 +786,10 @@ A: Not yet. We recommend a professional security audit before mainnet deployment
 | Issue | Solution |
 |-------|----------|
 | `Invalid webhook signature` | Verify `GITHUB_WEBHOOK_SECRET` matches what's configured in GitHub |
-| `Contract call failed` | Check `ORACLE_PRIVATE_KEY` has ETH for gas, and contract has sufficient balance |
-| `Address not found in bio` | Contributor's GitHub bio doesn't contain a valid Ethereum address |
+| `Contract call failed` | Check `ORACLE_SECRET_KEY` has XLM for fees, and contract has sufficient token balance |
+| `Address not found in bio` | Contributor's GitHub bio doesn't contain a valid Stellar address |
 | `Issue already paid` | The PR has already been processed — check the contract's `paidIssues` mapping |
-| `Forge: "Failed to resolve remapping"` | Run `forge install` to install dependencies |
+| `WASM build failure` | Ensure `wasm32-unknown-unknown` target is installed: `rustup target add wasm32-unknown-unknown` |
 | `Port already in use` | Change `PORT` in `.env` or stop the process using the port |
 
 ### Getting Help

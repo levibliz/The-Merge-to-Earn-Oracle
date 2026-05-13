@@ -35,24 +35,19 @@ jobs:
         working-directory: backend
 
   contract-tests:
-    name: Smart Contract Tests
+    name: Soroban Contract Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          version: nightly
+          targets: wasm32-unknown-unknown
 
-      - run: forge install
+      - run: cargo build --target wasm32-unknown-unknown --release
         working-directory: contracts
 
-      - run: forge build
-        working-directory: contracts
-
-      - run: forge test -vvv
+      - run: cargo test
         working-directory: contracts
 
   backend-tests:
@@ -93,9 +88,10 @@ jobs:
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/merge_to_earn" >> .env
           echo "GITHUB_WEBHOOK_SECRET=test-secret" >> .env
           echo "GITHUB_TOKEN=test-token" >> .env
-          echo "RPC_URL=http://localhost:8545" >> .env
-          echo "CONTRACT_ADDRESS=0x0000000000000000000000000000000000000000" >> .env
-          echo "ORACLE_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" >> .env
+          echo "RPC_URL=https://soroban-testnet.stellar.org" >> .env
+          echo "CONTRACT_ADDRESS=CA3S7X7V7Y7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q" >> .env
+          echo "ORACLE_SECRET_KEY=SB7X7V7Y7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7" >> .env
+          echo "TOKEN_ADDRESS=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2AV2D5BJG2C6KQ6UPE" >> .env
         working-directory: backend
 
       - run: pnpm db:generate

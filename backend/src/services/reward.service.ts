@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { loadConfig } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { parsePointsFromLabels } from '../utils/point-parser.js';
@@ -8,6 +7,8 @@ import { ContractService } from './contract.service.js';
 import { AppError } from '../utils/errors.js';
 import type { RewardResult } from '../types/contract.js';
 import type { GitHubWebhookPayload } from '../types/github.js';
+
+const STROOPS_PER_XLM = 10_000_000n;
 
 export class RewardService {
   private readonly github: GitHubService;
@@ -28,9 +29,9 @@ export class RewardService {
 
     const { points } = parsePointsFromLabels(labels);
 
-    const amountWei = ethers.parseEther(
-      (points * this.pricePerPoint).toString(),
-    );
+    const stroopsPerPoint = BigInt(Math.round(this.pricePerPoint * Number(STROOPS_PER_XLM)));
+    const amountStroops = BigInt(points) * stroopsPerPoint;
+    const amountXlm = Number(amountStroops) / Number(STROOPS_PER_XLM);
 
     const githubUser = await this.github.getUser(user.login);
 
@@ -48,7 +49,7 @@ export class RewardService {
     const txHash = await this.contract.releaseReward(
       contributorAddress,
       issueId,
-      amountWei,
+      amountStroops,
     );
 
     const result: RewardResult = {
@@ -56,7 +57,7 @@ export class RewardService {
       contributor: user.login,
       contributorAddress,
       points,
-      amount: ethers.formatEther(amountWei),
+      amount: amountXlm.toFixed(7),
       txHash,
     };
 

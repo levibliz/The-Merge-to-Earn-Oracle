@@ -31,7 +31,9 @@ export function loadConfig(): AppConfig {
     contract: {
       rpcUrl: requiredEnv('RPC_URL'),
       address: requiredEnv('CONTRACT_ADDRESS'),
-      oraclePrivateKey: requiredEnv('ORACLE_PRIVATE_KEY'),
+      oracleSecretKey: requiredEnv('ORACLE_SECRET_KEY'),
+      tokenAddress: requiredEnv('TOKEN_ADDRESS'),
+      networkPassphrase: process.env['NETWORK_PASSPHRASE'] ?? 'Test SDF Network ; September 2015',
     },
     reward: {
       pricePerPoint: parseEnv('PRICE_PER_POINT', Number, 0.001),

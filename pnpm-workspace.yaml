@@ -1,6 +1,5 @@
 packages:
   - 'backend'
-  - 'contracts'
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true

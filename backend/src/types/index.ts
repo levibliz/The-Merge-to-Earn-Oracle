@@ -12,7 +12,9 @@ export interface AppConfig {
   contract: {
     rpcUrl: string;
     address: string;
-    oraclePrivateKey: string;
+    oracleSecretKey: string;
+    tokenAddress: string;
+    networkPassphrase: string;
   };
   reward: {
     pricePerPoint: number;

@@ -63,10 +63,10 @@ describe('Webhook Endpoint', () => {
     mockReward.processPullRequest.mockResolvedValue({
       issueId: 1,
       contributor: 'user',
-      contributorAddress: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+      contributorAddress: 'GA7QNF7C3PJ4XZ6QJ3K5Y5V7Z7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q',
       points: 100,
-      amount: '0.1',
-      txHash: '0xabc',
+      amount: '0.0010000',
+      txHash: 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890',
     });
 
     const payload = {

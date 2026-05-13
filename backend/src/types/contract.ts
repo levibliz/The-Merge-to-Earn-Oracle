@@ -10,5 +10,7 @@ export interface RewardResult {
 export interface ContractConfig {
   rpcUrl: string;
   address: string;
-  oraclePrivateKey: string;
+  oracleSecretKey: string;
+  tokenAddress: string;
+  networkPassphrase: string;
 }

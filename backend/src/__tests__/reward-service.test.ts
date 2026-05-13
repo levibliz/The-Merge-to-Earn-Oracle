@@ -6,6 +6,9 @@ vi.mock('../services/github.service.js');
 vi.mock('../services/contract.service.js');
 vi.mock('../config/logger.js');
 
+const STELLAR_ADDRESS = 'GA7QNF7C3PJ4XZ6QJ3K5Y5V7Z7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q7Q';
+const STELLAR_TX_HASH = 'a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890';
+
 const validPayload: GitHubWebhookPayload = {
   action: 'closed',
   pull_request: {
@@ -13,7 +16,7 @@ const validPayload: GitHubWebhookPayload = {
     merged: true,
     user: {
       login: 'testuser',
-      bio: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+      bio: STELLAR_ADDRESS,
     },
     labels: [{ name: 'drips-wave: 100' }],
   },
@@ -36,12 +39,12 @@ describe('RewardService', () => {
 
     mockGithub.getUser.mockResolvedValue({
       login: 'testuser',
-      bio: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+      bio: STELLAR_ADDRESS,
     });
 
     mockContract.isAlreadyPaid.mockResolvedValue(false);
     mockContract.releaseReward.mockResolvedValue(
-      '0xabcdef1234567890',
+      STELLAR_TX_HASH,
     );
 
     const result = await service.processPullRequest(validPayload);
@@ -49,9 +52,9 @@ describe('RewardService', () => {
     expect(result).toMatchObject({
       issueId: 42,
       contributor: 'testuser',
-      contributorAddress: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
+      contributorAddress: STELLAR_ADDRESS,
       points: 100,
-      txHash: '0xabcdef1234567890',
+      txHash: STELLAR_TX_HASH,
     });
   });
 

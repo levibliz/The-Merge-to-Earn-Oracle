@@ -1,42 +1,75 @@
-import { ethers } from 'ethers';
+import {
+  SorobanRpc,
+  Contract,
+  Keypair,
+  nativeToScVal,
+  scValToNative,
+  TransactionBuilder,
+  BASE_FEE,
+  xdr,
+} from '@stellar/stellar-sdk';
 import { loadConfig } from '../config/index.js';
 import { logger } from '../config/logger.js';
 import { AppError } from '../utils/errors.js';
 
-const CONTRACT_ABI = [
-  'function releaseReward(address _contributor, uint256 _issueId, uint256 _amount) external',
-  'function paidIssues(uint256) external view returns (bool)',
-  'event RewardPaid(address indexed contributor, uint256 indexed issueId, uint256 amount)',
-];
-
 export class ContractService {
-  private readonly provider: ethers.JsonRpcProvider;
-  private readonly wallet: ethers.Wallet;
-  private readonly contract: ethers.Contract;
+  private readonly server: SorobanRpc.Server;
+  private readonly keypair: Keypair;
+  private readonly contract: Contract;
+  private readonly networkPassphrase: string;
 
   constructor() {
     const config = loadConfig();
 
-    this.provider = new ethers.JsonRpcProvider(config.contract.rpcUrl);
-    this.wallet = new ethers.Wallet(config.contract.oraclePrivateKey, this.provider);
-    this.contract = new ethers.Contract(
-      config.contract.address,
-      CONTRACT_ABI,
-      this.wallet,
-    );
+    this.server = new SorobanRpc.Server(config.contract.rpcUrl);
+    this.keypair = Keypair.fromSecret(config.contract.oracleSecretKey);
+    this.contract = new Contract(config.contract.address);
+    this.networkPassphrase = config.contract.networkPassphrase;
   }
 
   async isAlreadyPaid(issueId: number): Promise<boolean> {
-    return (this.contract.paidIssues as Function)(issueId) as unknown as boolean;
+    try {
+      const sourceAccount = await this.server.getAccount(
+        this.keypair.publicKey(),
+      );
+
+      const args: xdr.ScVal[] = [
+        nativeToScVal(issueId, { type: 'u64' }),
+      ];
+      const operation = this.contract.call('paid', ...args);
+
+      const tx = new TransactionBuilder(sourceAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(operation)
+        .setTimeout(30)
+        .build();
+
+      const result = await this.server.simulateTransaction(tx);
+
+      if (!result.result?.retval) {
+        return false;
+      }
+
+      return scValToNative(result.result.retval) as boolean;
+    } catch (error) {
+      logger.error({ error, issueId }, 'Failed to check paid status');
+      throw new AppError(
+        `Failed to check paid status: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        502,
+        'CONTRACT_ERROR',
+      );
+    }
   }
 
   async releaseReward(
     contributorAddress: string,
     issueId: number,
-    amountInWei: bigint,
+    amountStroops: bigint,
   ): Promise<string> {
     logger.info(
-      { contributorAddress, issueId, amount: amountInWei.toString() },
+      { contributorAddress, issueId, amount: amountStroops.toString() },
       'Submitting reward transaction',
     );
 
@@ -50,30 +83,69 @@ export class ContractService {
     }
 
     try {
-      const tx = (await (this.contract.releaseReward as Function)(
-        contributorAddress,
-        issueId,
-        amountInWei,
-        {
-          gasLimit: 100000,
-        },
-      )) as unknown as ethers.TransactionResponse;
+      const sourceAccount = await this.server.getAccount(
+        this.keypair.publicKey(),
+      );
 
-      logger.info({ txHash: tx.hash, issueId }, 'Transaction submitted');
+      const args: xdr.ScVal[] = [
+        nativeToScVal(contributorAddress, { type: 'address' }),
+        nativeToScVal(issueId, { type: 'u64' }),
+        nativeToScVal(amountStroops, { type: 'i128' }),
+      ];
+      const operation = this.contract.call('release_reward', ...args);
 
-      const receipt = await tx.wait();
+      const tx = new TransactionBuilder(sourceAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(operation)
+        .setTimeout(30)
+        .build();
+
+      const simulateResponse = await this.server.simulateTransaction(tx);
+
+      if (!simulateResponse || simulateResponse.error) {
+        throw new AppError(
+          `Transaction simulation failed: ${simulateResponse?.error ?? 'Unknown'}`,
+          502,
+          'CONTRACT_ERROR',
+        );
+      }
+
+      const preparedTx = SorobanRpc.assembleTransaction(
+        tx,
+        simulateResponse,
+      ) as SorobanRpc.RawTransaction;
+
+      preparedTx.sign(this.keypair);
+
+      const sendResponse = await this.server.sendTransaction(preparedTx);
+
+      if (sendResponse.status === 'ERROR' || sendResponse.status === 'FAILED') {
+        throw new AppError(
+          `Transaction failed to send: ${JSON.stringify(sendResponse)}`,
+          502,
+          'CONTRACT_ERROR',
+        );
+      }
+
+      const hash = sendResponse.hash;
+      logger.info({ txHash: hash, issueId }, 'Transaction submitted');
+
+      const receipt = await this.server.getTransaction(hash);
 
       if (!receipt) {
         throw new AppError('Transaction receipt not found', 502, 'CONTRACT_ERROR');
       }
 
       logger.info(
-        { txHash: receipt.hash, blockNumber: receipt.blockNumber, issueId },
+        { txHash: hash, status: receipt.status, issueId },
         'Reward transaction confirmed',
       );
 
-      return receipt.hash;
+      return hash;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       logger.error({ error, issueId }, 'Contract transaction failed');
       throw new AppError(
         `Failed to release reward: ${error instanceof Error ? error.message : 'Unknown error'}`,
