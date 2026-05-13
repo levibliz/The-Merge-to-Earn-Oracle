@@ -1,0 +1,28 @@
+{
+  "name": "@merge-to-earn/oracle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated reward payouts when GitHub PRs are merged — bridging contributions with on-chain payments",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @merge-to-earn/oracle-backend dev",
+    "build": "pnpm --filter @merge-to-earn/oracle-backend build",
+    "test": "pnpm --filter @merge-to-earn/oracle-backend test",
+    "lint": "pnpm --filter @merge-to-earn/oracle-backend lint",
+    "format": "pnpm --filter @merge-to-earn/oracle-backend format",
+    "format:check": "pnpm --filter @merge-to-earn/oracle-backend format:check",
+    "typecheck": "pnpm --filter @merge-to-earn/oracle-backend typecheck",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "*.ts": ["eslint --fix", "prettier --write"],
+    "*.sol": ["forge fmt"],
+    "*.{json,md,yml}": ["prettier --write"]
+  }
+}

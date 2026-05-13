@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RewardEvent {
+  id             String   @id @default(uuid())
+  issueId        Int      @unique
+  contributor    String
+  contributorAddress String
+  points         Int
+  amount         String
+  txHash         String?
+  status         Status   @default(PENDING)
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model WebhookDelivery {
+  id          String   @id @default(uuid())
+  deliveryId  String   @unique
+  event       String
+  action      String
+  statusCode  Int
+  body        String
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+enum Status {
+  PENDING
+  SUCCESS
+  FAILED
+}

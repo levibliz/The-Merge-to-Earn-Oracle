@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build outputs
+dist/
+out/
+cache/
+artifacts/
+typechain-types/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+coverage.json
+
+# Hardhat / Foundry
+contracts/lib/
+!contracts/lib/.gitkeep
+
+# Prisma
+backend/prisma/*.db
+backend/prisma/migrations/
+
+# Docker
+docker-data/
+
+# Misc
+*.tsbuildinfo
+.next/
